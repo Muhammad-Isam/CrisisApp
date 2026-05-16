@@ -10,7 +10,7 @@ import {
 } from 'react-native';
 
 // TODO: Replace with your actual GCP Cloud Run URL once deployed
-const BACKEND_URL = 'http://10.0.2.2:8080';
+const BACKEND_URL = 'https://crisisapp-957944136608.europe-west1.run.app';
 
 const getCrisisColor = (type: string) => {
   switch (type.toUpperCase()) {
