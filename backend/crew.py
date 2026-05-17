@@ -6,13 +6,18 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-# Initialize Gemini LLM for CrewAI
-llm = ChatGoogleGenerativeAI(
-    model="gemini-pro",
-    verbose=True,
-    temperature=0.2,
-    google_api_key=os.environ.get("GEMINI_API_KEY")
-)
+def get_llm():
+    api_key = os.environ.get("GEMINI_API_KEY", os.environ.get("GOOGLE_API_KEY"))
+    if not api_key:
+        print("WARNING: API Key not found. Using dummy key to prevent startup crash.")
+        api_key = "dummy_key_to_prevent_startup_crash"
+        
+    return ChatGoogleGenerativeAI(
+        model="gemini-2.5-flash",
+        verbose=True,
+        temperature=0.2,
+        google_api_key=api_key
+    )
 
 def create_crisis_agent() -> Agent:
     return Agent(
@@ -33,7 +38,7 @@ def create_crisis_agent() -> Agent:
         verbose=True,
         allow_delegation=False,
         tools=ALL_TOOLS,
-        llm=llm
+        llm=get_llm()
     )
 
 def process_crisis_event(crisis_type: str, location: str) -> str:

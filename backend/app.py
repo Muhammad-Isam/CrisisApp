@@ -19,7 +19,7 @@ class TriggerRequest(BaseModel):
 @app.get("/api/status")
 def get_status():
     """Health check endpoint for GCP Cloud Run"""
-    return {"status": "online", "agent": "CrewAI (Gemini-Pro)"}
+    return {"status": "online", "agent": "CrewAI (Gemini-2.5-Flash)"}
 
 @app.get("/api/events")
 def get_events():
