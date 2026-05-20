@@ -12,6 +12,7 @@ import {
   Dimensions,
   Animated,
   Easing,
+  Alert,
 } from 'react-native';
 import { WebView } from 'react-native-webview';
 
@@ -443,6 +444,22 @@ const CrisisCard = ({ item }: { item: any }) => {
                 {mitigation.safe_route && (
                   <TrafficRouting route={mitigation.safe_route} />
                 )}
+
+                {/* Situation Action Buttons (CTAs) */}
+                <View style={ss.cardActions}>
+                  <TouchableOpacity
+                    style={[ss.situationBtn, { backgroundColor: color }]}
+                    onPress={() => Alert.alert('Emergency Dispatch', `Additional emergency personnel and equipment dispatched for ${item.crisis_type} at ${item.location}.`)}
+                  >
+                    <Text style={ss.situationBtnTxt}>🚨 DISPATCH ADD. UNITS</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[ss.situationBtnSecondary, { borderColor: color }]}
+                    onPress={() => Alert.alert('Contact Local Command', `Establishing secure communication channel with local on-scene commander at ${item.location}.`)}
+                  >
+                    <Text style={[ss.situationBtnSecondaryTxt, { color }]}>📞 LOCAL COMMAND</Text>
+                  </TouchableOpacity>
+                </View>
               </View>
             </>
           )}
@@ -564,8 +581,8 @@ const App = () => {
     return () => clearInterval(iv);
   }, []);
 
-  const verified   = events.filter(e => e.status === 'Verified').length;
-  const falseAlarm = events.filter(e => e.status === 'FALSE ALARM').length;
+  const verified   = events.filter(e => e.status?.toUpperCase() === 'VERIFIED').length;
+  const falseAlarm = events.filter(e => e.status?.toUpperCase() === 'FALSE ALARM').length;
   const avgConf    = events.length
     ? Math.round(events.reduce((s, e) => s + (e.confidence_score || 0), 0) / events.length)
     : 0;
@@ -670,34 +687,34 @@ const App = () => {
 
 // ─── Styles ──────────────────────────────────────────────────────
 const ss = StyleSheet.create({
-  container:    { flex: 1, backgroundColor: '#f1f5f9' },
+  container:    { flex: 1, backgroundColor: '#f8fafc' },
 
   // Header
   header:       { backgroundColor: '#fff', paddingHorizontal: 16, paddingTop: 14, paddingBottom: 0, elevation: 4, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.07, shadowRadius: 8, borderBottomWidth: 1, borderBottomColor: '#f1f5f9' },
   headerTopRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 },
-  headerTitle:  { fontSize: 22, fontWeight: '900', color: '#0f172a', letterSpacing: 0.3 },
+  headerTitle:  { fontSize: 22, fontWeight: '900', color: '#15803d', letterSpacing: 0.3 },
   headerSub:    { fontSize: 11, color: '#10b981', fontWeight: '700', marginTop: 1 },
   liveBadge:    { flexDirection: 'row', alignItems: 'center', backgroundColor: '#f0fdf4', paddingHorizontal: 10, paddingVertical: 6, borderRadius: 20, borderWidth: 1, borderColor: '#dcfce7' },
   liveDot:      { width: 7, height: 7, borderRadius: 3.5, backgroundColor: '#16a34a', marginRight: 5 },
   liveText:     { fontSize: 11, fontWeight: '800', color: '#166534', letterSpacing: 1 },
 
-  statsRow:     { flexDirection: 'row', backgroundColor: '#f8fafc', borderRadius: 12, padding: 10, marginBottom: 12, borderWidth: 1, borderColor: '#e2e8f0', alignItems: 'center' },
+  statsRow:     { flexDirection: 'row', backgroundColor: '#f0fdf4', borderRadius: 12, padding: 10, marginBottom: 12, borderWidth: 1, borderColor: '#bbf7d0', alignItems: 'center' },
   statBox:      { flex: 1, alignItems: 'center' },
-  statVal:      { fontSize: 17, fontWeight: '900', color: '#1e293b' },
-  statLbl:      { fontSize: 9, color: '#94a3b8', fontWeight: '700', marginTop: 2, letterSpacing: 0.8 },
-  statDiv:      { width: 1, height: 28, backgroundColor: '#e2e8f0' },
+  statVal:      { fontSize: 17, fontWeight: '900', color: '#166534' },
+  statLbl:      { fontSize: 9, color: '#15803d', fontWeight: '700', marginTop: 2, letterSpacing: 0.8 },
+  statDiv:      { width: 1, height: 28, backgroundColor: '#bbf7d0' },
 
   actionRow:    { flexDirection: 'row', gap: 10, marginBottom: 14 },
-  btnPrimary:   { flex: 1.2, backgroundColor: '#0f172a', paddingVertical: 11, borderRadius: 10, alignItems: 'center' },
+  btnPrimary:   { flex: 1.2, backgroundColor: '#16a34a', paddingVertical: 11, borderRadius: 10, alignItems: 'center' },
   btnPrimaryTxt:{ color: '#fff', fontSize: 13, fontWeight: '700' },
-  btnSecondary: { flex: 1, backgroundColor: '#fff', borderWidth: 1, borderColor: '#e2e8f0', paddingVertical: 11, borderRadius: 10, alignItems: 'center' },
-  btnSecondaryTxt: { color: '#475569', fontSize: 13, fontWeight: '700' },
+  btnSecondary: { flex: 1, backgroundColor: '#f0fdf4', borderWidth: 1, borderColor: '#bbf7d0', paddingVertical: 11, borderRadius: 10, alignItems: 'center' },
+  btnSecondaryTxt: { color: '#15803d', fontSize: 13, fontWeight: '700' },
 
   tabRow:       { flexDirection: 'row', gap: 4 },
   tab:          { flex: 1, paddingVertical: 10, alignItems: 'center', borderBottomWidth: 2, borderBottomColor: 'transparent' },
-  tabActive:    { borderBottomColor: '#0f172a' },
+  tabActive:    { borderBottomColor: '#16a34a' },
   tabTxt:       { fontSize: 13, fontWeight: '700', color: '#94a3b8' },
-  tabTxtActive: { color: '#0f172a' },
+  tabTxtActive: { color: '#16a34a' },
 
   loaderBox:    { flex: 1, justifyContent: 'center', alignItems: 'center', gap: 10 },
   loaderTxt:    { color: '#334155', fontWeight: '700', fontSize: 15 },
@@ -813,8 +830,8 @@ const ss = StyleSheet.create({
 
   // Map
   leafletWrap:  { height: 340, margin: 12, borderRadius: 16, overflow: 'hidden', borderWidth: 1, borderColor: '#e2e8f0', elevation: 4, shadowColor: '#000', shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.09, shadowRadius: 10 },
-  mapLoader:    { ...StyleSheet.absoluteFillObject, backgroundColor: '#0f172a', alignItems: 'center', justifyContent: 'center' },
-  mapLoadTxt:   { color: '#94a3b8', fontWeight: '600', marginTop: 10 },
+  mapLoader:    { ...StyleSheet.absoluteFillObject, backgroundColor: '#f8fafc', alignItems: 'center', justifyContent: 'center' },
+  mapLoadTxt:   { color: '#475569', fontWeight: '600', marginTop: 10 },
   mapOverlayBadge: { position: 'absolute', bottom: 10, left: 10, flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(15,23,42,0.88)', paddingHorizontal: 10, paddingVertical: 5, borderRadius: 8 },
   mapDot:       { width: 6, height: 6, borderRadius: 3, backgroundColor: '#10b981', marginRight: 6 },
   mapOverlayText: { color: '#fff', fontSize: 9, fontWeight: '800', letterSpacing: 0.8 },
@@ -826,6 +843,13 @@ const ss = StyleSheet.create({
   routeCardAvoid: { fontSize: 11, color: '#7f1d1d', lineHeight: 16, fontWeight: '600', marginTop: 2 },
   routeCardUse:   { fontSize: 11, color: '#14532d', lineHeight: 16, fontWeight: '600', marginTop: 3 },
   noRoute:      { fontSize: 13, color: '#94a3b8', textAlign: 'center', fontWeight: '500', paddingVertical: 20 },
+
+  // Situation Action CTAs
+  cardActions:  { flexDirection: 'row', gap: 10, marginTop: 14 },
+  situationBtn: { flex: 1, paddingVertical: 11, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
+  situationBtnTxt: { color: '#fff', fontSize: 11, fontWeight: '800', letterSpacing: 0.4 },
+  situationBtnSecondary: { flex: 1, paddingVertical: 10, borderRadius: 10, alignItems: 'center', justifyContent: 'center', borderWidth: 1.5 },
+  situationBtnSecondaryTxt: { fontSize: 11, fontWeight: '800', letterSpacing: 0.4 },
 });
 
 export default App;

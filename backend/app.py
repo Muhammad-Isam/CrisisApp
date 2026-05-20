@@ -92,8 +92,8 @@ async def analyze_crisis_async(crisis: dict):
     try:
         print(f"🤖 Analyzing crisis: {crisis['crisis_type']} at {crisis['location']}")
         
-        # Invoke CrewAI dynamically
-        analysis = process_crisis_event(crisis["crisis_type"], crisis["location"])
+        # Invoke CrewAI dynamically in a separate thread to prevent event loop blocking
+        analysis = await asyncio.to_thread(process_crisis_event, crisis["crisis_type"], crisis["location"])
         
         # Update crisis with agentic analysis
         crisis["analysis"] = analysis
@@ -142,16 +142,15 @@ def get_status():
 
 @app.get("/api/session/start")
 @app.post("/api/session/start")
-def start_session(background_tasks: BackgroundTasks):
-    """Initialize session with base crises and trigger background analysis."""
+async def start_session():
+    """Initialize session with base crises and trigger concurrent analysis."""
     global event_payloads
     event_payloads = get_initial_crises()
     
-    # Automatically queue analysis for all base crises
-    for crisis in event_payloads:
-        background_tasks.add_task(analyze_crisis_async, crisis)
+    # Run all analyses concurrently in parallel threads
+    await asyncio.gather(*(analyze_crisis_async(c) for c in event_payloads))
         
-    print(f"✅ Session started. Loaded {len(event_payloads)} base crises and queued background analysis.")
+    print(f"✅ Session started. Loaded and analyzed {len(event_payloads)} base crises.")
     return {
         "session": "initialized",
         "crises_loaded": len(event_payloads),
@@ -170,7 +169,7 @@ def get_events():
 
 
 @app.post("/api/analyze-crisis")
-async def analyze_crisis(request: AnalyzeRequest, background_tasks: BackgroundTasks):
+async def analyze_crisis(request: AnalyzeRequest):
     """
     Trigger dynamic crisis analysis using CrewAI.
     Finds crisis by ID, invokes agent, returns analysis.
@@ -180,21 +179,21 @@ async def analyze_crisis(request: AnalyzeRequest, background_tasks: BackgroundTa
     if not crisis:
         raise HTTPException(status_code=404, detail=f"Crisis {request.crisis_id} not found")
     
-    # Run analysis asynchronously
-    background_tasks.add_task(analyze_crisis_async, crisis)
+    # Run analysis
+    await analyze_crisis_async(crisis)
     
     return {
         "crisis_id": crisis["id"],
-        "status": "analysis_queued",
-        "message": "Sending to agentic engine for verification..."
+        "status": crisis["status"],
+        "crisis": crisis
     }
 
 
 @app.post("/api/simulate")
-async def generate_new_simulation(background_tasks: BackgroundTasks):
+async def generate_new_simulation():
     """
     Generate a NEW crisis scenario using LLM.
-    Adds it to event_payloads and queues analysis.
+    Adds it to event_payloads and runs analysis.
     """
     if not CREW_AVAILABLE:
         raise HTTPException(status_code=503, detail="CrewAI not available")
@@ -203,7 +202,7 @@ async def generate_new_simulation(background_tasks: BackgroundTasks):
         print("🎲 Generating new crisis scenario...")
         
         # Generate scenario with LLM
-        scenario = generate_crisis_scenario()
+        scenario = await asyncio.to_thread(generate_crisis_scenario)
         if not scenario or "error" in scenario:
             raise HTTPException(status_code=500, detail="Failed to generate scenario")
         
@@ -221,12 +220,12 @@ async def generate_new_simulation(background_tasks: BackgroundTasks):
         event_payloads.append(crisis)
         print(f"✅ Generated: {crisis['crisis_type']} at {crisis['location']}")
         
-        # Queue analysis
-        background_tasks.add_task(analyze_crisis_async, crisis)
+        # Run analysis
+        await analyze_crisis_async(crisis)
         
         return {
             "crisis": crisis,
-            "status": "created_and_queued_for_analysis"
+            "status": "created_and_analyzed"
         }
         
     except Exception as e:
@@ -244,16 +243,15 @@ def get_crisis_detail(crisis_id: str):
 
 
 @app.post("/api/analyze-all")
-async def analyze_all_crises(background_tasks: BackgroundTasks):
+async def analyze_all_crises():
     """Analyze all pending crises."""
     pending = [c for c in event_payloads if c.get("analysis") is None]
     
-    for crisis in pending:
-        background_tasks.add_task(analyze_crisis_async, crisis)
+    await asyncio.gather(*(analyze_crisis_async(c) for c in pending))
     
     return {
-        "crises_queued": len(pending),
-        "message": "All crises sent to agentic engine"
+        "crises_analyzed": len(pending),
+        "message": "All pending crises analyzed successfully"
     }
 
 
