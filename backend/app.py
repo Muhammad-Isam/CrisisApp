@@ -98,9 +98,27 @@ async def analyze_crisis_async(crisis: dict):
         # Update crisis with agentic analysis
         crisis["analysis"] = analysis
         crisis["confidence_score"] = analysis.get("confidence_score", 0)
-        crisis["status"] = analysis.get("status", "UNVERIFIED")
         
-        print(f"✅ Analysis complete: {crisis['crisis_type']} — Confidence: {crisis['confidence_score']}%")
+        # Normalize status to match React Native app expectations ("FALSE ALARM" instead of "FALSE_ALARM")
+        status = str(analysis.get("status", "UNVERIFIED")).upper().replace("_", " ")
+        crisis["status"] = status
+        
+        # Map fields to top-level keys for React Native
+        crisis["sources_verified"] = analysis.get("sources_verified", [])
+        crisis["social_feed"] = analysis.get("social_feed", [])
+        crisis["agent_flow"] = analysis.get("agent_flow", [])
+        
+        # Map mitigation plan
+        mitigation = analysis.get("mitigation_plan", {})
+        crisis["mitigation_plan"] = {
+            "public_alert": mitigation.get("public_alert"),
+            "safe_route": mitigation.get("safe_route", {}),
+            "hospital_notification": mitigation.get("hospital_notification", {}),
+            "authorities_notified": mitigation.get("authorities_notified", []),
+            "resources_allocated": mitigation.get("resources_allocated", [])
+        }
+        
+        print(f"✅ Analysis complete: {crisis['crisis_type']} — Status: {crisis['status']} — Confidence: {crisis['confidence_score']}%")
         
     except Exception as e:
         print(f"❌ Analysis failed: {e}")
@@ -124,11 +142,16 @@ def get_status():
 
 @app.get("/api/session/start")
 @app.post("/api/session/start")
-def start_session():
-    """Initialize session with base crises."""
+def start_session(background_tasks: BackgroundTasks):
+    """Initialize session with base crises and trigger background analysis."""
     global event_payloads
     event_payloads = get_initial_crises()
-    print(f"✅ Session started. Loaded {len(event_payloads)} base crises.")
+    
+    # Automatically queue analysis for all base crises
+    for crisis in event_payloads:
+        background_tasks.add_task(analyze_crisis_async, crisis)
+        
+    print(f"✅ Session started. Loaded {len(event_payloads)} base crises and queued background analysis.")
     return {
         "session": "initialized",
         "crises_loaded": len(event_payloads),

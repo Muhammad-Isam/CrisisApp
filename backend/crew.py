@@ -14,9 +14,9 @@ def get_llm():
         print("WARNING: GEMINI_API_KEY not found in environment.")
         api_key = "fake-key-for-testing"
     
-    # Using gemini-2.5-flash for API compatibility
+    # Using gemini-flash-latest (Gemini 1.5 Flash) for free tier quota compatibility
     llm = ChatGoogleGenerativeAI(
-        model="gemini-2.5-flash",
+        model="gemini-flash-latest",
         google_api_key=api_key,
         temperature=0.7
     )
@@ -56,33 +56,50 @@ def process_crisis_event(crisis_type: str, location: str) -> dict:
        - Check consistency across multiple sources
        - Calculate confidence based on agreement between sources
     
-    3. Calculate a CONFIDENCE SCORE (0-100%) based on your simulated verification results
+    3. Calculate a CONFIDENCE SCORE (0-100%) based on your simulated verification results. If the confidence is below 15%, classify the status as FALSE_ALARM, otherwise VERIFIED.
     
-    4. If confidence > 75%, generate a MITIGATION PLAN with:
+    4. Construct a simulated social feed of 2-3 local posts about this situation.
+    
+    5. Construct the agent verification flow (timeline steps) describing your signal ingestion, cross-checking, scoring, and deployment steps.
+    
+    6. If verified, generate a MITIGATION PLAN with:
        - Public alert message
        - Safe route for evacuation
-       - Hospitals/facilities to notify
-       - Emergency units to dispatch (specify type, quantity, ETA)
-       - Resources to allocate
-    
-    5. If confidence < 75%, mark as UNVERIFIED and log reason
+       - Hospital alert details
+       - Emergency authorities to notify
+       - Resource units to allocate
     
     **CRITICAL:** Return your response as valid JSON with this exact structure:
     {{
-        "status": "VERIFIED" | "UNVERIFIED" | "FALSE_ALARM",
+        "status": "VERIFIED" | "FALSE_ALARM",
         "confidence_score": <0-100>,
-        "verification_details": "<what you verified>",
-        "public_alert": "<alert message>",
-        "safe_route": {{"avoid": "<areas>", "recommended": "<path>"}},
-        "hospital_notification": {{"target": "<name>", "beds_to_prepare": <num>, "specialization": "<type>", "eta_minutes": <num>}},
-        "authorities_notified": [
-            {{"name": "<agency>", "units": <num>, "eta_minutes": <num>}},
-            ...
+        "sources_verified": [
+            {{"name": "<sensor/source name>", "reading": "<simulated reading details>", "status": "CONFIRMED" | "DEBUNKED" | "NOT CONFIRMED"}}
         ],
-        "resources_allocated": [
-            {{"unit": "<type>", "quantity": <num>}},
-            ...
+        "social_feed": [
+            {{"user": "<handle>", "time": "<time ago e.g. 2 mins ago>", "text": "<post text>", "credibility": "HIGH" | "MEDIUM" | "LOW"}}
         ],
+        "agent_flow": [
+            {{"step": "Signal Ingestion" | "Multi-Source Cross-Check" | "False Positive Analysis" | "Confidence Scoring" | "Hospital Dispatch" | "Traffic Rerouting", "details": "<step details>", "status": "COMPLETED" | "DEPLOYED", "timestamp": "<time in HH:MM:SS format>"}}
+        ],
+        "mitigation_plan": {{
+            "public_alert": "<urgent alert message>",
+            "safe_route": {{"avoid": "<comma-separated list of roads/areas to avoid>", "recommended_path": "<clear route instructions for evacuation>"}},
+            "hospital_notification": {{
+                "target": "<hospital name>",
+                "beds_available": <total beds e.g. 50>,
+                "beds_to_prepare": <beds to prepare e.g. 15>,
+                "specialization": "<hospital specialization/treatment focus>",
+                "message": "<instruction message sent to hospital>",
+                "eta_minutes": <first responder ETA in minutes>
+            }},
+            "authorities_notified": [
+                {{"name": "<agency name>", "units": <number of units>, "eta_minutes": <ETA>, "status": "EN ROUTE" | "DEPLOYED" | "NOTIFIED"}}
+            ],
+            "resources_allocated": [
+                {{"unit": "<resource unit type>", "quantity": <quantity>}}
+            ]
+        }},
         "reasoning": "<explain your analysis>"
     }}
     
@@ -111,18 +128,49 @@ def process_crisis_event(crisis_type: str, location: str) -> dict:
         }
 
 
-def parse_crew_response(response: str) -> dict:
+def parse_crew_response(response) -> dict:
     """
     Extract JSON from crew response and parse it.
-    Handles cases where LLM wraps JSON in markdown code blocks.
+    Handles cases where LLM wraps JSON in markdown code blocks or returns list of parts.
     """
     import json
     import re
+    import ast
     
-    response_str = str(response).strip()
+    # Extract plain text string from any structure
+    if isinstance(response, list):
+        parts = []
+        for part in response:
+            if isinstance(part, dict) and 'text' in part:
+                parts.append(part['text'])
+            elif isinstance(part, str):
+                parts.append(part)
+        response_str = "".join(parts)
+    elif isinstance(response, dict) and 'text' in response:
+        response_str = response['text']
+    else:
+        response_str = str(response)
+        
+    response_str = response_str.strip()
     
+    # Handle stringified list representation if it got stringified elsewhere
+    if response_str.startswith('[') and ('type' in response_str or 'text' in response_str):
+        try:
+            parsed_list = ast.literal_eval(response_str)
+            if isinstance(parsed_list, list):
+                parts = []
+                for part in parsed_list:
+                    if isinstance(part, dict) and 'text' in part:
+                        parts.append(part['text'])
+                    elif isinstance(part, str):
+                        parts.append(part)
+                response_str = "".join(parts).strip()
+        except Exception as e:
+            print(f"Failed ast parsing of stringified list: {e}")
+            pass
+            
     # Try to extract JSON from markdown code blocks
-    json_match = re.search(r'```(?:json)?\s*([\s\S]*?)\s*```', response_str)
+    json_match = re.search(r'```(?:json)?\s*([\s\S]*?)\s*```', response_str, re.IGNORECASE)
     if json_match:
         response_str = json_match.group(1)
     
