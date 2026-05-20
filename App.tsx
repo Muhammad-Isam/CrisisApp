@@ -559,7 +559,7 @@ const App = () => {
   };
 
   useEffect(() => {
-    fetchEvents();
+    startSession();
     const iv = setInterval(fetchEvents, 8000);
     return () => clearInterval(iv);
   }, []);
