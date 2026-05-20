@@ -328,12 +328,168 @@ const App = () => {
             <View style={styles.mapGridLineV1} />
             <View style={styles.mapGridLineV2} />
 
+            {/* Arabian Sea Coastline (Clifton Beach area) */}
+            <View style={{
+              position: 'absolute',
+              bottom: 0,
+              left: 0,
+              width: mapWidth * 0.45,
+              height: mapHeight * 0.35,
+              backgroundColor: '#dbeafe', // soft blue sea
+              borderTopRightRadius: 100,
+              opacity: 0.9,
+              zIndex: 1,
+            }} />
+
+            {/* Lyari River */}
+            <View style={{
+              position: 'absolute',
+              top: mapHeight * 0.22,
+              left: 0,
+              width: mapWidth * 0.65,
+              height: 4,
+              backgroundColor: '#bae6fd',
+              transform: [{ rotate: '18deg' }],
+              zIndex: 2,
+              opacity: 0.8,
+            }} />
+
+            {/* Malir River */}
+            <View style={{
+              position: 'absolute',
+              bottom: mapHeight * 0.28,
+              right: 0,
+              width: mapWidth * 0.5,
+              height: 4,
+              backgroundColor: '#bae6fd',
+              transform: [{ rotate: '-12deg' }],
+              zIndex: 2,
+              opacity: 0.8,
+            }} />
+
+            {/* Lyari Expressway */}
+            <View style={{
+              position: 'absolute',
+              top: mapHeight * 0.24,
+              left: 0,
+              width: mapWidth * 0.65,
+              height: 2,
+              backgroundColor: '#ffffff',
+              borderColor: '#94a3b8',
+              borderWidth: 0.5,
+              transform: [{ rotate: '18deg' }],
+              zIndex: 3,
+            }} />
+
+            {/* Shahrah-e-Faisal Highway */}
+            <View style={{
+              position: 'absolute',
+              top: mapHeight * 0.53,
+              left: 0,
+              right: 0,
+              height: 5,
+              backgroundColor: '#f1f5f9',
+              borderColor: '#cbd5e1',
+              borderWidth: 1,
+              transform: [{ rotate: '-8deg' }],
+              zIndex: 3,
+            }} />
+
+            {/* Sher Shah Suri Road */}
+            <View style={{
+              position: 'absolute',
+              top: 0,
+              bottom: 0,
+              left: mapWidth * 0.35,
+              width: 4,
+              backgroundColor: '#ffffff',
+              borderColor: '#cbd5e1',
+              borderWidth: 0.5,
+              zIndex: 3,
+            }} />
+
+            {/* Korangi Industrial Road */}
+            <View style={{
+              position: 'absolute',
+              bottom: mapHeight * 0.18,
+              right: 0,
+              width: mapWidth * 0.55,
+              height: 4,
+              backgroundColor: '#ffffff',
+              borderColor: '#cbd5e1',
+              borderWidth: 0.5,
+              transform: [{ rotate: '-18deg' }],
+              zIndex: 3,
+            }} />
+
+            {/* Safari Park */}
+            <View style={{
+              position: 'absolute',
+              top: mapHeight * 0.28,
+              right: mapWidth * 0.18,
+              width: 40,
+              height: 30,
+              borderRadius: 12,
+              backgroundColor: '#dcfce7',
+              borderColor: '#bbf7d0',
+              borderWidth: 1,
+              opacity: 0.9,
+              zIndex: 2,
+            }} />
+
+            {/* Hill Park */}
+            <View style={{
+              position: 'absolute',
+              top: mapHeight * 0.45,
+              left: mapWidth * 0.52,
+              width: 25,
+              height: 20,
+              borderRadius: 8,
+              backgroundColor: '#dcfce7',
+              borderColor: '#bbf7d0',
+              borderWidth: 1,
+              opacity: 0.9,
+              zIndex: 2,
+            }} />
+
+            {/* Radar Scan Rings */}
+            <View style={{
+              position: 'absolute',
+              left: mapWidth / 2 - 80,
+              top: mapHeight / 2 - 80,
+              width: 160,
+              height: 160,
+              borderRadius: 80,
+              borderWidth: 1,
+              borderColor: '#10b981',
+              opacity: 0.07,
+              zIndex: 5,
+            }} />
+            <View style={{
+              position: 'absolute',
+              left: mapWidth / 2 - 40,
+              top: mapHeight / 2 - 40,
+              width: 80,
+              height: 80,
+              borderRadius: 40,
+              borderWidth: 1,
+              borderColor: '#10b981',
+              opacity: 0.07,
+              zIndex: 5,
+            }} />
+
+            {/* Map Latitude & Longitude HUD Bounding Labels */}
+            <Text style={{ position: 'absolute', top: 4, left: 6, fontSize: 8, color: '#64748b', fontWeight: 'bold', zIndex: 10 }}>25.00°N</Text>
+            <Text style={{ position: 'absolute', bottom: 4, left: 6, fontSize: 8, color: '#64748b', fontWeight: 'bold', zIndex: 10 }}>24.80°N</Text>
+            <Text style={{ position: 'absolute', bottom: 4, right: 6, fontSize: 8, color: '#64748b', fontWeight: 'bold', zIndex: 10 }}>67.20°E</Text>
+            <Text style={{ position: 'absolute', top: 4, right: 6, fontSize: 8, color: '#64748b', fontWeight: 'bold', zIndex: 10 }}>66.90°E</Text>
+
             {/* Static Sectors Labels */}
-            <Text style={[styles.sectorLabel, { top: 30, left: 30 }]}>Orangi Town</Text>
-            <Text style={[styles.sectorLabel, { top: 25, right: 30 }]}>North Karachi</Text>
-            <Text style={[styles.sectorLabel, { top: 120, left: mapWidth / 2 - 40 }]}>Saddar Town</Text>
-            <Text style={[styles.sectorLabel, { bottom: 30, right: 40 }]}>Korangi Industrial</Text>
-            <Text style={[styles.sectorLabel, { bottom: 25, left: 50 }]}>Clifton Beach</Text>
+            <Text style={[styles.sectorLabel, { top: 30, left: 30, zIndex: 10 }]}>Orangi Town</Text>
+            <Text style={[styles.sectorLabel, { top: 25, right: 30, zIndex: 10 }]}>North Karachi</Text>
+            <Text style={[styles.sectorLabel, { top: 120, left: mapWidth / 2 - 40, zIndex: 10 }]}>Saddar Town</Text>
+            <Text style={[styles.sectorLabel, { bottom: 30, right: 40, zIndex: 10 }]}>Korangi Industrial</Text>
+            <Text style={[styles.sectorLabel, { bottom: 25, left: 50, zIndex: 10 }]}>Clifton Beach</Text>
 
             {/* Dynamic Coordinates Projecting on Map */}
             {events.map((event) => {
@@ -342,7 +498,7 @@ const App = () => {
               const color = getCrisisColor(event.crisis_type || 'UNKNOWN');
               
               return (
-                <View key={event.id} style={[styles.mapMarkerContainer, { left: x - 25, top: y - 25 }]}>
+                <View key={event.id} style={[styles.mapMarkerContainer, { left: x - 25, top: y - 25, zIndex: 30 }]}>
                   {/* Pulsing Risk Circle Halo */}
                   <View style={[
                     styles.markerPulseCircle, 
