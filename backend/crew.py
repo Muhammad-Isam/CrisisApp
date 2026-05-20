@@ -7,13 +7,14 @@ from dotenv import load_dotenv
 load_dotenv()
 
 def get_llm():
-    # Ensure GEMINI_API_KEY is synced for LiteLLM
     api_key = os.environ.get("GEMINI_API_KEY", os.environ.get("GOOGLE_API_KEY"))
-    if api_key:
-        os.environ["GEMINI_API_KEY"] = api_key
-    else:
+    if not api_key:
         print("WARNING: GEMINI_API_KEY not found in environment.")
-    return "gemini/gemini-3.5-flash"
+    return ChatGoogleGenerativeAI(
+        model="gemini-3.5-flash",
+        google_api_key=api_key
+    )
+
 
 def create_crisis_agent() -> Agent:
     return Agent(
