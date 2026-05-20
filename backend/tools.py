@@ -2,9 +2,9 @@ import json
 import random
 
 try:
-    from crewai.tools import tool
+    from langchain_core.tools import tool
 except ImportError:
-    # Fallback if crewai is not installed
+    # Fallback if langchain_core is not installed
     def tool(name=None):
         def decorator(func):
             return func
