@@ -1,82 +1,40 @@
 import os
 import json
-from crewai import Agent, Task, Crew, Process
 from langchain_google_genai import ChatGoogleGenerativeAI
+from langchain_core.messages import HumanMessage
 from tools import ALL_TOOLS
 from dotenv import load_dotenv
 
 load_dotenv()
 
 def get_llm():
+    """Initialize Gemini LLM directly (bypassing CrewAI provider issues)."""
     api_key = os.environ.get("GEMINI_API_KEY", os.environ.get("GOOGLE_API_KEY"))
     if not api_key:
         print("WARNING: GEMINI_API_KEY not found in environment.")
-        # Fallback for local testing
         api_key = "fake-key-for-testing"
     
     llm = ChatGoogleGenerativeAI(
         model="gemini-1.5-flash",
         google_api_key=api_key,
-        temperature=0.7,
-        verbose=True
+        temperature=0.7
     )
     return llm
 
 
-def create_crisis_agent(tools=None) -> Agent:
-    """Create the crisis management agent (tools parameter ignored - using LLM reasoning instead)."""
-    # NOTE: Removed tools from Agent due to Pydantic validation issues with CrewAI 1.14.5
-    # The LLM will simulate tool responses in its reasoning and output
-    return Agent(
-        role='Crisis Management Orchestrator',
-        goal='Analyze incoming crisis signals, verify them through multi-source fusion, calculate confidence scores, and dynamically generate mitigation plans with resource allocation.',
-        backstory="""You are the "Crisis Management Orchestrator," an autonomous agentic AI system.
-        You operate using a strict ReAct (Reason -> Act -> Observe) loop and NEVER make decisions based on single data sources.
-        
-        # Available Tools (simulate their responses in your reasoning):
-        - poll_nasa_firms: Returns thermal anomaly data (fire detection)
-        - query_emsc_seismic: Returns earthquake P/S wave data
-        - query_weather_api: Returns precipitation and heat index
-        - query_air_quality: Returns air quality sensor readings
-        - query_waze_traffic: Returns traffic patterns
-        - analyze_cctv_feed: Returns visual analysis results
-        - query_social_velocity: Returns social media signal strength
-        - query_grid_load: Returns power grid stress analysis
-        - calculate_safe_route: Returns evacuation route
-        - allocate_resources: Returns resource allocation plan
-        - issue_public_alert: Issues citizen alerts
-        - notify_stakeholders: Notifies agencies
-        
-        # Core Rules:
-        1. **Multi-Source Verification:** Always cross-check primary signals with secondary/tertiary sources.
-        2. **Confidence Scoring:** 
-           - 0-40%: Unverified (Monitor)
-           - 41-75%: Probable (Alert authorities)
-           - 76-100%: Verified (Deploy resources & public alerts)
-        3. **False Positive Prevention:** If secondary tools contradict primary signal, downgrade confidence.
-        4. **Dynamic Planning:** Generate specific, actionable mitigation strategies based on verified threat level.
-        5. **Resource Optimization:** Allocate minimum necessary resources for maximum impact.
-        """,
-        verbose=True,
-        allow_delegation=False,
-        llm=get_llm()
-    )
-
-
 def process_crisis_event(crisis_type: str, location: str) -> dict:
     """
-    Dynamically analyze a crisis event and return structured mitigation plan.
+    Directly analyze a crisis event using LLM (bypasses CrewAI provider registry issues).
     
     Flow:
-    1. Agent reasons about crisis using available tools (simulated in LLM response)
-    2. Agent generates confidence score
-    3. Agent decides resource allocation
-    4. Agent creates public alerts & safe routes
+    1. LLM reasons about crisis using simulated tools
+    2. LLM generates confidence score
+    3. LLM decides resource allocation
+    4. LLM creates public alerts & safe routes
     5. Returns structured JSON response
     """
     
-    # Create agent (without tools due to CrewAI Pydantic issues)
-    agent = create_crisis_agent()
+    llm = get_llm()
     
     # Dynamically select verification strategy based on crisis type
     crisis_prompt = f"""
@@ -129,31 +87,19 @@ def process_crisis_event(crisis_type: str, location: str) -> dict:
     
     Start your analysis NOW."""
     
-    # Create verification task
-    verification_task = Task(
-        description=crisis_prompt,
-        agent=agent,
-        expected_output="JSON-formatted crisis analysis with verification, confidence score, and mitigation plan"
-    )
-    
-    # Create and execute crew
-    crew = Crew(
-        agents=[agent],
-        tasks=[verification_task],
-        process=Process.sequential,
-        verbose=True
-    )
-    
     try:
-        result = crew.kickoff()
-        print(f"✅ Crew execution result:\n{result}")
+        # Call LLM directly via langchain
+        message = HumanMessage(content=crisis_prompt)
+        response = llm.invoke([message])
+        
+        print(f"✅ LLM response:\n{response.content}")
         
         # Parse result as JSON
-        parsed_result = parse_crew_response(str(result))
+        parsed_result = parse_crew_response(response.content)
         return parsed_result
         
     except Exception as e:
-        print(f"❌ Crew execution failed: {e}")
+        print(f"❌ LLM execution failed: {e}")
         import traceback
         traceback.print_exc()
         return {
@@ -162,17 +108,6 @@ def process_crisis_event(crisis_type: str, location: str) -> dict:
             "error": str(e),
             "fallback": "System entered degraded mode."
         }
-
-
-def get_crisis_tools(crisis_type: str) -> str:
-    """Return relevant tools for each crisis type."""
-    tools_map = {
-        "FIRE": "poll_nasa_firms, query_air_quality, query_waze_traffic, query_social_velocity",
-        "FLOOD": "query_weather_api, query_waze_traffic, analyze_cctv_feed, query_social_velocity",
-        "EARTHQUAKE": "query_emsc_seismic, query_social_velocity, query_grid_load",
-        "HEAT_WAVE": "query_weather_api, query_grid_load, query_social_velocity",
-    }
-    return tools_map.get(crisis_type, "all available tools")
 
 
 def parse_crew_response(response: str) -> dict:
@@ -235,7 +170,8 @@ def generate_crisis_scenario() -> dict:
     Return ONLY valid JSON, no markdown."""
     
     try:
-        result = llm.invoke(prompt)
+        message = HumanMessage(content=prompt)
+        result = llm.invoke([message])
         return parse_crew_response(result.content)
     except Exception as e:
         print(f"Failed to generate crisis: {e}")
