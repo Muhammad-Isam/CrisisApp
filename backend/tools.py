@@ -1,6 +1,6 @@
 import json
 import random
-from langchain.tools import tool
+from crewai.tools import tool
 
 # ==========================================
 # Ingestion & Verification Tools

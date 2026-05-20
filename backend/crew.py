@@ -7,17 +7,13 @@ from dotenv import load_dotenv
 load_dotenv()
 
 def get_llm():
+    # Ensure GEMINI_API_KEY is synced for LiteLLM
     api_key = os.environ.get("GEMINI_API_KEY", os.environ.get("GOOGLE_API_KEY"))
-    if not api_key:
-        print("WARNING: API Key not found. Using dummy key to prevent startup crash.")
-        api_key = "dummy_key_to_prevent_startup_crash"
-        
-    return ChatGoogleGenerativeAI(
-        model="gemini-2.5-flash",
-        verbose=True,
-        temperature=0.2,
-        google_api_key=api_key
-    )
+    if api_key:
+        os.environ["GEMINI_API_KEY"] = api_key
+    else:
+        print("WARNING: GEMINI_API_KEY not found in environment.")
+    return "gemini/gemini-2.5-flash"
 
 def create_crisis_agent() -> Agent:
     return Agent(
@@ -91,15 +87,37 @@ def process_crisis_event(crisis_type: str, location: str) -> str:
         
         Execute the protocol. You MUST output your final answer as a structured JSON object containing:
         {{
+            "id": "evt_{crisis_type.lower()}_{location.lower().replace(' ', '_')}",
             "crisis_type": "{crisis_type}",
             "location": "{location}",
-            "confidence_score": <int>,
+            "confidence_score": <int between 0 and 100>,
             "status": "<Verified | Probable | Unverified | False Positive>",
-            "actions_taken": [<list of actions taken like alerts issued, routes calculated>]
+            "coordinates": {{
+                "latitude": <float latitude for Karachi region, e.g. 24.8 to 25.0>,
+                "longitude": <float longitude for Karachi region, e.g. 67.0 to 67.2>
+            }},
+            "sources_verified": [
+                {{ "name": "<sensor/tool name used>", "reading": "<raw values observed>", "status": "CONFIRMED" }}
+            ],
+            "mitigation_plan": {{
+                "public_alert": "<specific warning message to display to the public>",
+                "safe_route": {{
+                    "avoid": "<hazard zones to bypass>",
+                    "recommended_path": "<alternative navigation route name>"
+                }},
+                "hospital_notification": {{
+                    "target": "<hospital name>",
+                    "beds_to_prepare": <int number of beds, e.g. 10 to 30 based on confidence/crisis type>,
+                    "message": "<dispatch warning/ETA for the hospital staff>"
+                }},
+                "resources_allocated": [
+                    {{ "unit": "<Fire Engine | Ambulance | Police Cruiser | Rescue Boat>", "quantity": <int> }}
+                ]
+            }}
         }}
-        Do not output any markdown code blocks in your final answer, just the raw JSON.
+        Do not output any markdown code blocks (like ```json) in your final answer, just the raw JSON.
         """,
-        expected_output="A valid JSON object containing confidence_score, status, and actions_taken.",
+        expected_output="A valid JSON object containing id, confidence_score, status, coordinates, sources_verified, and mitigation_plan.",
         agent=agent
     )
 
