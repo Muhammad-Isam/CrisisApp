@@ -58,9 +58,20 @@ def process_crisis_event(crisis_type: str, location: str) -> dict:
     """
     
     # Get relevant tools for this crisis type
-    relevant_tool_names = get_crisis_tools(crisis_type)
-    # Filter ALL_TOOLS to only include those relevant for this crisis
-    relevant_tools = [t for t in ALL_TOOLS if any(name in str(t) for name in relevant_tool_names.split(", "))]
+    relevant_tool_names_str = get_crisis_tools(crisis_type)
+    relevant_tool_names = [n.strip() for n in relevant_tool_names_str.split(",")]
+    
+    # Filter ALL_TOOLS by matching tool names more reliably
+    relevant_tools = []
+    for tool_func in ALL_TOOLS:
+        tool_name = getattr(tool_func, 'name', None) or getattr(tool_func, '__name__', str(tool_func))
+        if tool_name in relevant_tool_names:
+            relevant_tools.append(tool_func)
+    
+    print(f"[DEBUG] Crisis Type: {crisis_type}")
+    print(f"[DEBUG] Expected tools: {relevant_tool_names}")
+    print(f"[DEBUG] Filtered {len(relevant_tools)} tools from {len(ALL_TOOLS)} total")
+    print(f"[DEBUG] Actual tools: {[getattr(t, 'name', getattr(t, '__name__', str(t))) for t in relevant_tools]}")
     
     # Create agent with relevant tools only
     agent = create_crisis_agent(tools=relevant_tools)
