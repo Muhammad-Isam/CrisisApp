@@ -18,8 +18,10 @@ def get_llm():
     )
 
 
-def create_crisis_agent() -> Agent:
-    """Create the crisis management agent with all available tools."""
+def create_crisis_agent(tools=None) -> Agent:
+    """Create the crisis management agent with specified tools."""
+    if tools is None:
+        tools = []
     return Agent(
         role='Crisis Management Orchestrator',
         goal='Analyze incoming crisis signals, verify them through multi-source fusion, calculate confidence scores, and dynamically generate mitigation plans with resource allocation.',
@@ -38,7 +40,7 @@ def create_crisis_agent() -> Agent:
         """,
         verbose=True,
         allow_delegation=False,
-        tools=ALL_TOOLS,
+        tools=tools,
         llm=get_llm()
     )
 
@@ -55,7 +57,13 @@ def process_crisis_event(crisis_type: str, location: str) -> dict:
     5. Returns structured JSON response
     """
     
-    agent = create_crisis_agent()
+    # Get relevant tools for this crisis type
+    relevant_tool_names = get_crisis_tools(crisis_type)
+    # Filter ALL_TOOLS to only include those relevant for this crisis
+    relevant_tools = [t for t in ALL_TOOLS if any(name in str(t) for name in relevant_tool_names.split(", "))]
+    
+    # Create agent with relevant tools only
+    agent = create_crisis_agent(tools=relevant_tools)
     
     # Dynamically select verification strategy based on crisis type
     crisis_prompt = f"""
@@ -65,7 +73,7 @@ def process_crisis_event(crisis_type: str, location: str) -> dict:
     Location: {location}
     
     Your task:
-    1. Verify this {crisis_type} alert through appropriate tools ({get_crisis_tools(crisis_type)})
+    1. Verify this {crisis_type} alert through appropriate tools ({relevant_tool_names})
     2. Check cross-signals (traffic, social media, air quality, etc.)
     3. Calculate a CONFIDENCE SCORE (0-100%) based on verification results
     4. If confidence > 75%, generate a MITIGATION PLAN with:
