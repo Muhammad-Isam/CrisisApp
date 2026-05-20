@@ -1,24 +1,23 @@
 import json
-import random
+import asyncio
 from fastapi import FastAPI, HTTPException, BackgroundTasks
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
-# Graceful crew import — if crewai fails (e.g. dependency conflict in container),
-# the app still starts and serves all mock crisis data normally.
+# Graceful crew import
 CREW_AVAILABLE = False
 try:
-    from crew import process_crisis_event
+    from crew import process_crisis_event, generate_crisis_scenario
     CREW_AVAILABLE = True
     print("✅ CrewAI agent loaded successfully.")
 except Exception as e:
     print(f"⚠️  CrewAI not available (running in mock-only mode): {e}")
 
-APP_VERSION = "2.1.0"
+APP_VERSION = "3.0.0"
 
 app = FastAPI(
     title="CrisisAI Agentic Backend",
-    description="Multi-crisis agentic orchestration API — Karachi Emergency Response System",
+    description="Fully dynamic agentic crisis orchestration — Karachi Emergency Response System",
     version=APP_VERSION
 )
 
@@ -29,331 +28,233 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# Global state
 event_payloads: list = []
 
 class TriggerRequest(BaseModel):
     crisis_type: str
     location: str
 
+class AnalyzeRequest(BaseModel):
+    crisis_id: str
+
 
 def get_initial_crises() -> list:
+    """Return base crisis scenarios (minimal metadata — no hardcoded mitigation)."""
     return [
-        # ── 1. FIRE — Verified ──────────────────────────────────────────
         {
             "id": "evt_fire_sector4",
             "crisis_type": "FIRE",
             "location": "Sector 4, North Karachi Industrial Zone",
-            "confidence_score": 94,
-            "status": "Verified",
             "coordinates": {"latitude": 24.965, "longitude": 67.062},
-            "sources_verified": [
-                {"name": "NASA FIRMS Satellite", "reading": "Thermal FRP: 380 MW — active fire pixel confirmed at 24.965°N, 67.062°E", "status": "CONFIRMED"},
-                {"name": "AQ Sensor AQ-7 (Sector 4)", "reading": "PM2.5: 321 µg/m³ — Hazardous (threshold: 250 µg/m³)", "status": "CONFIRMED"},
-                {"name": "Waze Traffic API", "reading": "Avg speed: 6 km/h | 3 road closures reported on Sector 4 Blvd", "status": "CONFIRMED"},
-                {"name": "Twitter/X Social Monitor", "reading": "87 distress mentions in 4 min — #KarachiFire trending locally", "status": "CONFIRMED"}
-            ],
-            "social_feed": [
-                {"user": "@NorthKarachiNews", "time": "3 mins ago", "text": "🔥 BREAKING: Massive fire at Korangi warehouse district. Thick black smoke visible for miles. Fire brigade en route! #Karachi #Fire", "credibility": "HIGH"},
-                {"user": "@Siddique_Rashid", "time": "5 mins ago", "text": "The smoke from Sector 4 is unbearable — eyes are burning from inside my house. Avoid Sector 4 Main Boulevard at all costs right now.", "credibility": "MEDIUM"},
-                {"user": "@PakistanAlertsLive", "time": "7 mins ago", "text": "ALERT: Industrial fire North Karachi. Multiple fire engines dispatched. Residents advised to shelter in place and close all windows.", "credibility": "HIGH"}
-            ],
-            "agent_flow": [
-                {"step": "Signal Ingestion", "details": "NASA FIRMS thermal anomaly received — FRP 380 MW at 24.965°N, 67.062°E. Hotspot radius: ~400m.", "status": "COMPLETED", "timestamp": "20:31:02"},
-                {"step": "Multi-Source Cross-Check", "details": "AQ-7 sensor confirms PM2.5 321 µg/m³. Waze: 3 closures, 6 km/h avg. Twitter: 87 mentions in 4 min. All 4 sources aligned.", "status": "COMPLETED", "timestamp": "20:31:09"},
-                {"step": "False Positive Analysis", "details": "Historical fire probability at this coordinate: 0.3%. No recurring seasonal burn pattern. Debris fire ruled out. Signal classified: GENUINE.", "status": "COMPLETED", "timestamp": "20:31:14"},
-                {"step": "Confidence Scoring", "details": "4/4 data sources confirmed. Severity: HIGH. Proximity to residential zone: 350m. Final confidence: 94%.", "status": "COMPLETED", "timestamp": "20:31:17"},
-                {"step": "Hospital Dispatch", "details": "Karachi Trauma Centre alerted via API. 15 burn/smoke inhalation beds prepared. First responder ETA: 8 min.", "status": "DEPLOYED", "timestamp": "20:31:20"},
-                {"step": "Traffic Rerouting", "details": "Sector 4 Boulevard auto-closed in Waze/Google Maps via traffic authority API. 14,200 vehicles rerouted via Sher Shah Suri Road.", "status": "DEPLOYED", "timestamp": "20:31:22"}
-            ],
-            "mitigation_plan": {
-                "public_alert": "⚠️ ACTIVE FIRE — Sector 4, North Karachi. Hazardous smoke (PM2.5: 321). DO NOT enter the area. Shelter in place if within 2km. Close all windows immediately.",
-                "safe_route": {
-                    "avoid": "Sector 4 Main Boulevard, Korangi Industrial Road (full stretch), Sher Shah Road between Sector 3–5",
-                    "recommended_path": "Reroute via M-9 Motorway northbound → Northern Bypass → Superhighway alternate"
-                },
-                "hospital_notification": {
-                    "target": "Karachi Trauma Centre, North Nazimabad",
-                    "beds_available": 42,
-                    "beds_to_prepare": 15,
-                    "specialization": "Burn & Smoke Inhalation ICU",
-                    "message": "Prepare 15 emergency beds: burn trauma + smoke inhalation. Stock IV fluids, morphine drips. First responders ETA 8 min.",
-                    "eta_minutes": 8
-                },
-                "authorities_notified": [
-                    {"name": "Karachi Fire Brigade (North)", "units": 4, "eta_minutes": 7, "status": "EN ROUTE"},
-                    {"name": "Rescue 1122", "units": 3, "eta_minutes": 9, "status": "EN ROUTE"},
-                    {"name": "KDA Traffic Police (North Zone)", "units": 6, "eta_minutes": 5, "status": "DEPLOYED"},
-                    {"name": "NDMA Regional Office Karachi", "units": 1, "eta_minutes": 20, "status": "NOTIFIED"}
-                ],
-                "resources_allocated": [
-                    {"unit": "Fire Engine", "quantity": 4},
-                    {"unit": "Ambulance", "quantity": 3},
-                    {"unit": "Police Cruiser", "quantity": 6},
-                    {"unit": "Emergency Medical Team", "quantity": 2}
-                ]
-            }
+            "status": "PENDING_ANALYSIS",
+            "confidence_score": 0,
+            "analysis": None
         },
-
-        # ── 2. FLOOD — Verified ─────────────────────────────────────────
         {
             "id": "evt_flood_clifton",
             "crisis_type": "FLOOD",
             "location": "Block 5, Clifton — Sea View Drive",
-            "confidence_score": 89,
-            "status": "Verified",
-            "coordinates": {"latitude": 24.818, "longitude": 67.033},
-            "sources_verified": [
-                {"name": "MetDept Rainfall API", "reading": "Rainfall: 78mm/hr — Severe cloudburst, active for 45 min", "status": "CONFIRMED"},
-                {"name": "CCTV Vision AI (Cam #108)", "reading": "Standing water: 2.8 ft | 7 stranded vehicles | 2 pedestrians trapped", "status": "CONFIRMED"},
-                {"name": "Waze Traffic API", "reading": "Avg speed: 3 km/h — Gridlock. Clifton Underpass submerged.", "status": "CONFIRMED"},
-                {"name": "Tide Gauge TG-3 (Sea View)", "reading": "Sea level: +1.4m above mean — High tide surge compounding rainfall", "status": "CONFIRMED"}
-            ],
-            "social_feed": [
-                {"user": "@CliftonDriver", "time": "4 mins ago", "text": "Khayaban-e-Iqbal is COMPLETELY FLOODED. The Clifton underpass is UNDERWATER. Cars are floating. DO NOT COME HERE. Calling Rescue 1122 now. #KarachiRain 🌊", "credibility": "HIGH"},
-                {"user": "@KarachiWeatherAlert", "time": "9 mins ago", "text": "⚠️ SEVERE CLOUDBURST: Clifton area 78mm/hr rainfall. Flash flood risk EXTREME. Avoid ALL underpasses and low-lying roads immediately.", "credibility": "HIGH"},
-                {"user": "@SafetyFirst_PK", "time": "11 mins ago", "text": "If your car stalls in floodwater ABANDON IT immediately and move to higher ground. Do NOT wait inside the vehicle. #FloodSafety", "credibility": "MEDIUM"}
-            ],
-            "agent_flow": [
-                {"step": "Signal Ingestion", "details": "MetDept issued severe cloudburst alert. Clifton station reading 78mm/hr — exceeds flash flood threshold (50mm/hr) by 56%.", "status": "COMPLETED", "timestamp": "20:25:11"},
-                {"step": "CCTV Visual Confirmation", "details": "Vision AI on camera #108 confirms 2.8ft standing water, 7 stranded vehicles, 2 trapped pedestrians at Sea View Drive.", "status": "COMPLETED", "timestamp": "20:25:18"},
-                {"step": "Tide & Traffic Correlation", "details": "Tide gauge TG-3: +1.4m above mean. Waze confirms complete gridlock. Compound flood risk (rain + tide surge) validated.", "status": "COMPLETED", "timestamp": "20:25:24"},
-                {"step": "Confidence Scoring", "details": "4/4 sources confirm active flooding. Pedestrians at risk confirmed on CCTV. Severity: CRITICAL. Confidence: 89%.", "status": "COMPLETED", "timestamp": "20:25:29"},
-                {"step": "Rescue Dispatch", "details": "2 rescue boats deployed from Clifton Marine base (ETA 6 min). South City Hospital notified — 10 beds on standby.", "status": "DEPLOYED", "timestamp": "20:25:33"},
-                {"step": "Traffic Rerouting", "details": "Clifton Underpass & Khayaban-e-Iqbal auto-closed. 9,200 vehicles rerouted via Sunset Boulevard → Shaheed-e-Millat Expressway.", "status": "DEPLOYED", "timestamp": "20:25:35"}
-            ],
-            "mitigation_plan": {
-                "public_alert": "🌊 FLASH FLOOD ACTIVE — Clifton Block 5. Underpass submerged. 2.8ft standing water on Sea View Drive. EVACUATE low-lying areas NOW. Rescue boats deployed.",
-                "safe_route": {
-                    "avoid": "Clifton Underpass (submerged), Khayaban-e-Iqbal (flooded), Sea View Drive, Do Talwar Roundabout area",
-                    "recommended_path": "Sunset Boulevard → Korangi Road → Shaheed-e-Millat Expressway (elevated section)"
-                },
-                "hospital_notification": {
-                    "target": "South City Hospital, Clifton",
-                    "beds_available": 38,
-                    "beds_to_prepare": 10,
-                    "specialization": "Drowning & Water Trauma",
-                    "message": "Prepare 10 emergency beds: near-drowning, water trauma, hypothermia. Rescue teams active — first patients ETA 15 min.",
-                    "eta_minutes": 15
-                },
-                "authorities_notified": [
-                    {"name": "Karachi Marine Rescue Unit", "units": 2, "eta_minutes": 6, "status": "EN ROUTE"},
-                    {"name": "PDMA Sindh (Provincial)", "units": 1, "eta_minutes": 25, "status": "NOTIFIED"},
-                    {"name": "KDA Traffic Police (South)", "units": 4, "eta_minutes": 8, "status": "DEPLOYED"},
-                    {"name": "Civil Defence Clifton Zone", "units": 3, "eta_minutes": 12, "status": "EN ROUTE"}
-                ],
-                "resources_allocated": [
-                    {"unit": "Rescue Boat", "quantity": 2},
-                    {"unit": "Ambulance", "quantity": 2},
-                    {"unit": "Police Cruiser", "quantity": 4},
-                    {"unit": "Water Pump Unit", "quantity": 3}
-                ]
-            }
+            "coordinates": {"latitude": 24.793, "longitude": 67.034},
+            "status": "PENDING_ANALYSIS",
+            "confidence_score": 0,
+            "analysis": None
         },
-
-        # ── 3. EARTHQUAKE — FALSE ALARM (Debunked) ─────────────────────
         {
-            "id": "evt_quake_saddar_false",
+            "id": "evt_earthquake_saddar",
             "crisis_type": "EARTHQUAKE",
             "location": "Saddar Town, Downtown Karachi",
-            "confidence_score": 8,
-            "status": "FALSE ALARM",
-            "coordinates": {"latitude": 24.860, "longitude": 67.010},
-            "sources_verified": [
-                {"name": "USGS Seismic Monitor", "reading": "No seismic activity at 24.86°N, 67.01°E (±50km radius) — all clear", "status": "NOT CONFIRMED"},
-                {"name": "Pakistan Met Dept Seismograph", "reading": "Background noise only. Richter < 0.5. Zero ground motion detected.", "status": "NOT CONFIRMED"},
-                {"name": "12-Sensor Accelerometer Network", "reading": "All 12 sensors nominal at 0.01g. No P-wave or S-wave detected anywhere in Karachi.", "status": "NOT CONFIRMED"},
-                {"name": "Source Credibility Analysis", "reading": "Origin: 1 account (12 followers, 2 weeks old). Credibility score: 2/100. Pattern: panic amplification bot.", "status": "DEBUNKED"}
-            ],
-            "social_feed": [
-                {"user": "@KarachiBuzzer99", "time": "18 mins ago", "text": "EARTHQUAKE!! I felt strong shaking in Saddar!! Everyone run outside NOW!! Buildings shaking!! #KarachiEarthquake 😱", "credibility": "LOW — UNVERIFIED RUMOUR"},
-                {"user": "@QuakeAlertsPK", "time": "16 mins ago", "text": "✅ OFFICIAL: NO earthquake detected by USGS, PMD, or any of our 12 Karachi seismic sensors. Viral post is FALSE INFORMATION. Do NOT panic.", "credibility": "HIGH — OFFICIAL"},
-                {"user": "@PMDKarachiOfficial", "time": "14 mins ago", "text": "Pakistan Meteorological Department: All Karachi seismographs NORMAL. No earthquake event has occurred. Please disregard unverified social media posts.", "credibility": "HIGH — OFFICIAL"}
-            ],
-            "agent_flow": [
-                {"step": "Signal Ingestion", "details": "Social media rumour ingested: 1 viral post claiming earthquake in Saddar — 234 retweets in 3 minutes. Priority alert triggered.", "status": "COMPLETED", "timestamp": "20:18:44"},
-                {"step": "Seismic Sensor Network Query", "details": "Queried USGS API + PMD seismograph + 12 local accelerometers. ALL report: no seismic activity detected. Richter < 0.5 everywhere.", "status": "COMPLETED", "timestamp": "20:18:51"},
-                {"step": "Source Credibility Analysis", "details": "@KarachiBuzzer99: 12 followers, account 2 weeks old, no verified history, 0 prior credible reports. Credibility score: 2/100. No corroborating accounts found.", "status": "COMPLETED", "timestamp": "20:18:56"},
-                {"step": "False Positive Verdict", "details": "0/3 physical sensor networks confirmed any event. Single ultra-low-credibility source. VERDICT: FALSE ALARM. No emergency dispatch warranted.", "status": "COMPLETED", "timestamp": "20:19:01"},
-                {"step": "Public Correction Issued", "details": "Counter-alert pushed to 47,000 Karachi app users. PMD + official channels notified. Misinformation post flagged for platform removal.", "status": "DEPLOYED", "timestamp": "20:19:05"}
-            ],
-            "mitigation_plan": {
-                "public_alert": "✅ FALSE ALARM CONFIRMED — The earthquake rumour about Saddar is UNVERIFIED. All 12 Karachi seismic sensors show completely normal readings. NO earthquake occurred. Stay calm.",
-                "safe_route": None,
-                "hospital_notification": None,
-                "authorities_notified": [
-                    {"name": "Pakistan Met Dept (PMD)", "units": 0, "eta_minutes": 0, "status": "INFORMED — NO ACTION"},
-                    {"name": "Karachi Commissioner Office", "units": 0, "eta_minutes": 0, "status": "INFORMED — NO ACTION"}
-                ],
-                "resources_allocated": []
-            }
+            "coordinates": {"latitude": 24.858, "longitude": 67.009},
+            "status": "PENDING_ANALYSIS",
+            "confidence_score": 0,
+            "analysis": None
         },
-
-        # ── 4. HEATWAVE — Verified ──────────────────────────────────────
         {
             "id": "evt_heatwave_orangi",
-            "crisis_type": "HEATWAVE",
+            "crisis_type": "HEAT_WAVE",
             "location": "Orangi Town, Sector 9",
-            "confidence_score": 82,
-            "status": "Verified",
-            "coordinates": {"latitude": 24.935, "longitude": 66.995},
-            "sources_verified": [
-                {"name": "MetDept Weather API", "reading": "Heat Index: 49°C | Humidity: 71% | 4th consecutive day above 46°C", "status": "CONFIRMED"},
-                {"name": "KESC Grid Monitor", "reading": "Orangi feeder at 107% load capacity. Transformer stress: CRITICAL. Failure risk in 2–4 hrs.", "status": "CONFIRMED"},
-                {"name": "Social Distress Monitor", "reading": "Heat-related distress mentions: 612/min — +400% above 7-day baseline", "status": "CONFIRMED"}
-            ],
-            "social_feed": [
-                {"user": "@OrangiResident_Ali", "time": "11 mins ago", "text": "Electricity gone for 6 hours. It's 47°C inside my house. My elderly mother has heat stroke symptoms — dizziness, not responding. Please someone help!! #OrangiHeatwave 🆘", "credibility": "HIGH"},
-                {"user": "@EdhiFoundationPK", "time": "14 mins ago", "text": "🏥 EDHI COOLING CENTRES NOW OPEN: Sector 9 Community Hall, Orangi Town. Free water, ORS & medical staff available 24/7. Call 115 for help. #HeatRelief", "credibility": "HIGH"}
-            ],
-            "agent_flow": [
-                {"step": "Signal Ingestion", "details": "MetDept 4th consecutive day heat advisory: 49°C heat index. Orangi Town flagged as highest vulnerability zone in Karachi.", "status": "COMPLETED", "timestamp": "20:22:15"},
-                {"step": "Grid Stress Analysis", "details": "KESC reports Orangi feeder at 107% capacity. Risk model: transformer failure within 2–4 hours without emergency load reduction.", "status": "COMPLETED", "timestamp": "20:22:21"},
-                {"step": "Vulnerability Mapping", "details": "Social distress 612/min (+400% baseline). Elderly and under-5 population density in Orangi: 34% — highest mortality risk bracket in city.", "status": "COMPLETED", "timestamp": "20:22:27"},
-                {"step": "Confidence Scoring", "details": "3/3 data streams confirmed. Sustained multi-day heat event. Human vulnerability index: HIGH. Final confidence: 82%.", "status": "COMPLETED", "timestamp": "20:22:31"},
-                {"step": "Cooling Centre Activation", "details": "Sector 9 Community Hall activated as emergency cooling centre. Edhi Foundation dispatched with 200L water and ORS stock.", "status": "DEPLOYED", "timestamp": "20:22:35"},
-                {"step": "Hospital & Grid Alert", "details": "Abbasi Shaheed Hospital: 20 heat stroke beds prepared + IV fluids pre-staged. KESC emergency load reduction order issued for Orangi feeder.", "status": "DEPLOYED", "timestamp": "20:22:38"}
-            ],
-            "mitigation_plan": {
-                "public_alert": "☀️ HEAT EMERGENCY — Orangi Town. Heat index 49°C. Power grid critical. Go to Sector 9 Community Cooling Hall immediately if you feel unwell. Free medical help available.",
-                "safe_route": {
-                    "avoid": "Open-air commercial strip (Orangi Town Market Road) — extreme direct sun exposure risk during peak hours",
-                    "recommended_path": "Sector 9 Community Cooling Hall (air-conditioned, 24/7 open) | Edhi Foundation Centre, Block 11"
-                },
-                "hospital_notification": {
-                    "target": "Abbasi Shaheed Hospital, Orangi",
-                    "beds_available": 67,
-                    "beds_to_prepare": 20,
-                    "specialization": "Heat Stroke & Dehydration",
-                    "message": "Prepare 20 beds: heat stroke, severe dehydration, heat exhaustion. ORS + IV fluids + cooling blankets all pre-staged and ready.",
-                    "eta_minutes": 0
-                },
-                "authorities_notified": [
-                    {"name": "KESC / K-Electric Emergency", "units": 3, "eta_minutes": 45, "status": "EN ROUTE"},
-                    {"name": "Karachi City Health Dept", "units": 2, "eta_minutes": 30, "status": "NOTIFIED"},
-                    {"name": "Edhi Foundation Orangi", "units": 4, "eta_minutes": 0, "status": "DEPLOYED"},
-                    {"name": "Rescue 1122", "units": 2, "eta_minutes": 18, "status": "EN ROUTE"}
-                ],
-                "resources_allocated": [
-                    {"unit": "Ambulance", "quantity": 3},
-                    {"unit": "Utility Repair Van", "quantity": 3},
-                    {"unit": "Cooling Supply Truck", "quantity": 2},
-                    {"unit": "Medical Response Team", "quantity": 2}
-                ]
-            }
+            "coordinates": {"latitude": 24.920, "longitude": 67.052},
+            "status": "PENDING_ANALYSIS",
+            "confidence_score": 0,
+            "analysis": None
         }
     ]
 
 
-# Boot: populate events immediately on startup
-event_payloads = get_initial_crises()
-print(f"✅ CrisisAI v{APP_VERSION} started — {len(event_payloads)} crises loaded.")
+async def analyze_crisis_async(crisis: dict):
+    """Asynchronously invoke Gemini agent to analyze crisis."""
+    if not CREW_AVAILABLE:
+        print("⚠️  Crew not available, using mock analysis")
+        crisis["status"] = "UNVERIFIED"
+        crisis["analysis"] = {"error": "CrewAI unavailable"}
+        return
+    
+    try:
+        print(f"🤖 Analyzing crisis: {crisis['crisis_type']} at {crisis['location']}")
+        
+        # Invoke CrewAI dynamically
+        analysis = process_crisis_event(crisis["crisis_type"], crisis["location"])
+        
+        # Update crisis with agentic analysis
+        crisis["analysis"] = analysis
+        crisis["confidence_score"] = analysis.get("confidence_score", 0)
+        crisis["status"] = analysis.get("status", "UNVERIFIED")
+        
+        print(f"✅ Analysis complete: {crisis['crisis_type']} — Confidence: {crisis['confidence_score']}%")
+        
+    except Exception as e:
+        print(f"❌ Analysis failed: {e}")
+        crisis["status"] = "ERROR"
+        crisis["analysis"] = {"error": str(e)}
 
+
+# ────────────────────────────────────────────────────────────────────
+# ENDPOINTS
+# ────────────────────────────────────────────────────────────────────
 
 @app.get("/api/status")
 def get_status():
+    """Health check endpoint."""
     return {
         "status": "online",
-        "version": APP_VERSION,
-        "agent": f"CrisisAI v{APP_VERSION} — Gemini Flash",
-        "crew_available": CREW_AVAILABLE,
-        "active_events": len(event_payloads)
+        "agent": "CrewAI (Gemini-3.5-Flash)" if CREW_AVAILABLE else "MOCK MODE",
+        "version": APP_VERSION
+    }
+
+
+@app.get("/api/session/start")
+@app.post("/api/session/start")
+def start_session():
+    """Initialize session with base crises."""
+    global event_payloads
+    event_payloads = get_initial_crises()
+    print(f"✅ Session started. Loaded {len(event_payloads)} base crises.")
+    return {
+        "session": "initialized",
+        "crises_loaded": len(event_payloads),
+        "crises": event_payloads
     }
 
 
 @app.get("/api/events")
 def get_events():
-    return {"events": event_payloads}
-
-
-@app.get("/api/session/start")
-@app.post("/api/session/start")
-def start_session(background_tasks: BackgroundTasks):
-    global event_payloads
-    event_payloads = get_initial_crises()
-    if CREW_AVAILABLE:
-        background_tasks.add_task(run_agent_background, "EARTHQUAKE", "Saddar Town (Downtown)")
+    """Get all current crisis events."""
     return {
-        "message": f"Session initialized with {len(event_payloads)} active crises.",
-        "active_events_count": len(event_payloads),
-        "crew_available": CREW_AVAILABLE
+        "events": event_payloads,
+        "total": len(event_payloads),
+        "analyzed": sum(1 for c in event_payloads if c.get("analysis") is not None)
     }
 
 
-def run_agent_background(crisis_type: str, location: str):
+@app.post("/api/analyze-crisis")
+async def analyze_crisis(request: AnalyzeRequest, background_tasks: BackgroundTasks):
+    """
+    Trigger dynamic crisis analysis using CrewAI.
+    Finds crisis by ID, invokes agent, returns analysis.
+    """
+    # Find crisis
+    crisis = next((c for c in event_payloads if c["id"] == request.crisis_id), None)
+    if not crisis:
+        raise HTTPException(status_code=404, detail=f"Crisis {request.crisis_id} not found")
+    
+    # Run analysis asynchronously
+    background_tasks.add_task(analyze_crisis_async, crisis)
+    
+    return {
+        "crisis_id": crisis["id"],
+        "status": "analysis_queued",
+        "message": "Sending to agentic engine for verification..."
+    }
+
+
+@app.post("/api/simulate")
+async def generate_new_simulation(background_tasks: BackgroundTasks):
+    """
+    Generate a NEW crisis scenario using LLM.
+    Adds it to event_payloads and queues analysis.
+    """
     if not CREW_AVAILABLE:
-        return
+        raise HTTPException(status_code=503, detail="CrewAI not available")
+    
     try:
-        result = process_crisis_event(crisis_type, location)
-        try:
-            cleaned = str(result).replace("```json", "").replace("```", "").strip()
-            payload = json.loads(cleaned)
-            payload.setdefault("social_feed", [])
-            payload.setdefault("agent_flow", [])
-            payload.setdefault("mitigation_plan", {})
-            mp = payload["mitigation_plan"]
-            mp.setdefault("resources_allocated", [])
-            mp.setdefault("authorities_notified", [])
-            event_payloads.insert(0, payload)
-            if len(event_payloads) > 100:
-                event_payloads.pop()
-        except json.JSONDecodeError:
-            event_payloads.insert(0, _fallback_payload(crisis_type, location, str(result)))
-    except Exception as e:
-        print(f"Agent execution failed: {e}")
-        event_payloads.insert(0, _fallback_payload(crisis_type, location, str(e)))
-
-
-def _fallback_payload(crisis_type: str, location: str, raw: str) -> dict:
-    return {
-        "id": f"evt_{crisis_type.lower()}_live_{random.randint(100, 999)}",
-        "crisis_type": crisis_type,
-        "location": location,
-        "confidence_score": 55,
-        "status": "Agent Processing",
-        "coordinates": {"latitude": 24.86, "longitude": 67.01},
-        "sources_verified": [
-            {"name": "Primary Signal", "reading": "Alert ingested — agent verification in progress", "status": "PENDING"}
-        ],
-        "social_feed": [
-            {"user": "@KarachiSafetyNet", "time": "Just now", "text": f"Monitoring unconfirmed {crisis_type} report near {location}. Agents cross-checking. Stay alert.", "credibility": "MEDIUM"}
-        ],
-        "agent_flow": [
-            {"step": "Signal Ingestion", "details": f"Alert ingested for {crisis_type} at {location}.", "status": "COMPLETED", "timestamp": "Live"},
-            {"step": "Agent Verification", "details": f"Live CrewAI verification running. Output: {raw[:120]}…", "status": "COMPLETED", "timestamp": "Live"},
-            {"step": "Safety Protocol", "details": "Auto-fallback: Civil Hospital notified + 1 Ambulance dispatched.", "status": "DEPLOYED", "timestamp": "Live"}
-        ],
-        "mitigation_plan": {
-            "public_alert": f"Unconfirmed {crisis_type} near {location}. Agents verifying. Exercise caution.",
-            "safe_route": {"avoid": "Immediate area", "recommended_path": "Use alternate routes until verified"},
-            "hospital_notification": {
-                "target": "Civil Hospital Karachi",
-                "beds_available": 120,
-                "beds_to_prepare": 5,
-                "specialization": "General Emergency",
-                "message": "Low-priority standby. 5 beds pre-cleared pending verification.",
-                "eta_minutes": 20
-            },
-            "authorities_notified": [
-                {"name": "Karachi Police Control Room", "units": 1, "eta_minutes": 15, "status": "NOTIFIED"}
-            ],
-            "resources_allocated": [{"unit": "Ambulance", "quantity": 1}]
+        print("🎲 Generating new crisis scenario...")
+        
+        # Generate scenario with LLM
+        scenario = generate_crisis_scenario()
+        if not scenario or "error" in scenario:
+            raise HTTPException(status_code=500, detail="Failed to generate scenario")
+        
+        # Create crisis object
+        crisis = {
+            "id": f"evt_{scenario['crisis_type'].lower()}_{len(event_payloads)}",
+            "crisis_type": scenario["crisis_type"],
+            "location": scenario["location"],
+            "coordinates": scenario.get("coordinates", {"latitude": 24.9, "longitude": 67.1}),
+            "status": "PENDING_ANALYSIS",
+            "confidence_score": 0,
+            "analysis": None
         }
+        
+        event_payloads.append(crisis)
+        print(f"✅ Generated: {crisis['crisis_type']} at {crisis['location']}")
+        
+        # Queue analysis
+        background_tasks.add_task(analyze_crisis_async, crisis)
+        
+        return {
+            "crisis": crisis,
+            "status": "created_and_queued_for_analysis"
+        }
+        
+    except Exception as e:
+        print(f"❌ Simulation failed: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/crisis/{crisis_id}")
+def get_crisis_detail(crisis_id: str):
+    """Get detailed analysis of a specific crisis."""
+    crisis = next((c for c in event_payloads if c["id"] == crisis_id), None)
+    if not crisis:
+        raise HTTPException(status_code=404, detail=f"Crisis {crisis_id} not found")
+    return crisis
+
+
+@app.post("/api/analyze-all")
+async def analyze_all_crises(background_tasks: BackgroundTasks):
+    """Analyze all pending crises."""
+    pending = [c for c in event_payloads if c.get("analysis") is None]
+    
+    for crisis in pending:
+        background_tasks.add_task(analyze_crisis_async, crisis)
+    
+    return {
+        "crises_queued": len(pending),
+        "message": "All crises sent to agentic engine"
     }
 
 
-@app.post("/api/trigger")
-def trigger_agent(request: TriggerRequest, background_tasks: BackgroundTasks):
-    valid = ["FIRE", "EARTHQUAKE", "FLOOD", "HEATWAVE"]
-    if request.crisis_type.upper() not in valid:
-        raise HTTPException(status_code=400, detail=f"Invalid crisis_type. Must be one of {valid}")
-    background_tasks.add_task(run_agent_background, request.crisis_type.upper(), request.location)
+@app.get("/")
+def root():
+    """Root endpoint."""
     return {
-        "message": "Agent workflow initiated.",
-        "crisis_type": request.crisis_type.upper(),
-        "location": request.location
+        "name": "CrisisAI Agentic Backend",
+        "version": APP_VERSION,
+        "docs": "/docs",
+        "crew_available": CREW_AVAILABLE,
+        "endpoints": {
+            "session": "/api/session/start (POST/GET)",
+            "events": "/api/events",
+            "analyze": "/api/analyze-crisis (POST)",
+            "generate": "/api/simulate (POST)",
+            "detail": "/api/crisis/{id}",
+            "status": "/api/status"
+        }
     }
 
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run("app:app", host="0.0.0.0", port=8080, reload=True)
+    port = 8080
+    print(f"🚀 Starting CrisisAI on port {port}...")
+    uvicorn.run(app, host="0.0.0.0", port=port)
