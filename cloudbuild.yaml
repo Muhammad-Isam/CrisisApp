@@ -1,0 +1,38 @@
+steps:
+  # Build the Docker image from the backend/ subdirectory
+  - name: 'gcr.io/cloud-builders/docker'
+    args:
+      - 'build'
+      - '-t'
+      - 'gcr.io/$PROJECT_ID/crisisapp:$COMMIT_SHA'
+      - './backend'
+
+  # Push the image to Google Container Registry
+  - name: 'gcr.io/cloud-builders/docker'
+    args:
+      - 'push'
+      - 'gcr.io/$PROJECT_ID/crisisapp:$COMMIT_SHA'
+
+  # Deploy to Cloud Run
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+    entrypoint: gcloud
+    args:
+      - 'run'
+      - 'deploy'
+      - 'crisisapp'
+      - '--image'
+      - 'gcr.io/$PROJECT_ID/crisisapp:$COMMIT_SHA'
+      - '--region'
+      - 'europe-west1'
+      - '--allow-unauthenticated'
+      - '--platform'
+      - 'managed'
+      - '--set-env-vars'
+      - 'GOOGLE_API_KEY=AIzaSyAy057-0eeZnj6cZxw7sAMSsiSGSpjx-4s'
+
+images:
+  - 'gcr.io/$PROJECT_ID/crisisapp:$COMMIT_SHA'
+
+options:
+  logging: CLOUD_LOGGING_ONLY
+  defaultLogsBucketBehavior: REGIONAL_USER_OWNED_BUCKET
