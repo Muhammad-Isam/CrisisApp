@@ -13,7 +13,7 @@ def get_llm():
         os.environ["GEMINI_API_KEY"] = api_key
     else:
         print("WARNING: GEMINI_API_KEY not found in environment.")
-    return "gemini/gemini-2.5-flash"
+    return "gemini/gemini-3.5-flash"
 
 def create_crisis_agent() -> Agent:
     return Agent(
@@ -125,7 +125,7 @@ def process_crisis_event(crisis_type: str, location: str) -> str:
         agents=[agent],
         tasks=[task],
         process=Process.sequential,
-        verbose=2
+        verbose=True
     )
 
     result = crew.kickoff()
