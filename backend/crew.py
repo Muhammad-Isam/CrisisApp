@@ -14,8 +14,9 @@ def get_llm():
         print("WARNING: GEMINI_API_KEY not found in environment.")
         api_key = "fake-key-for-testing"
     
+    # Using gemini-1.5-pro which is the stable model name for Gemini
     llm = ChatGoogleGenerativeAI(
-        model="gemini-1.5-flash",
+        model="gemini-1.5-pro",
         google_api_key=api_key,
         temperature=0.7
     )
