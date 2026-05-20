@@ -11,11 +11,16 @@ def get_llm():
     api_key = os.environ.get("GEMINI_API_KEY", os.environ.get("GOOGLE_API_KEY"))
     if not api_key:
         print("WARNING: GEMINI_API_KEY not found in environment.")
-    return ChatGoogleGenerativeAI(
-        model="gemini-3.5-flash",
+        # Fallback for local testing
+        api_key = "fake-key-for-testing"
+    
+    llm = ChatGoogleGenerativeAI(
+        model="gemini-1.5-flash",
         google_api_key=api_key,
-        temperature=0.7
+        temperature=0.7,
+        verbose=True
     )
+    return llm
 
 
 def create_crisis_agent(tools=None) -> Agent:
