@@ -100,6 +100,12 @@ def process_crisis_event(crisis_type: str, location: str) -> str:
             "sources_verified": [
                 {{ "name": "<sensor/tool name used>", "reading": "<raw values observed>", "status": "CONFIRMED" }}
             ],
+            "social_feed": [
+                {{ "user": "@<mock handle, e.g. SaddarTraffic>", "time": "1 min ago", "text": "<ingested tweet about the tremor/hazard>" }}
+            ],
+            "agent_flow": [
+                {{ "step": "<step name, e.g. Ingestion | Verification | Dispatch>", "details": "<short description of what action occurred>", "status": "<COMPLETED | DEPLOYED>" }}
+            ],
             "mitigation_plan": {{
                 "public_alert": "<specific warning message to display to the public>",
                 "safe_route": {{
@@ -118,7 +124,7 @@ def process_crisis_event(crisis_type: str, location: str) -> str:
         }}
         Do not output any markdown code blocks (like ```json) in your final answer, just the raw JSON.
         """,
-        expected_output="A valid JSON object containing id, confidence_score, status, coordinates, sources_verified, and mitigation_plan.",
+        expected_output="A valid JSON object containing id, confidence_score, status, coordinates, sources_verified, social_feed, agent_flow, and mitigation_plan.",
         agent=agent
     )
 

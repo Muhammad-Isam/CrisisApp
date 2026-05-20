@@ -1,7 +1,9 @@
 import json
+import random
 from fastapi import FastAPI, HTTPException, BackgroundTasks
 from pydantic import BaseModel
 from crew import process_crisis_event
+
 
 app = FastAPI(
     title="Crisis Management Agentic Backend",
@@ -33,6 +35,17 @@ def get_initial_crises():
                 { "name": "NASA FIRMS", "reading": "Thermal FRP: 380", "status": "CONFIRMED" },
                 { "name": "Air Quality Index", "reading": "PM2.5: 320 (Hazardous)", "status": "CONFIRMED" },
                 { "name": "Waze Traffic", "reading": "Speed: 8 km/h, Road Closures", "status": "CONFIRMED" }
+            ],
+            "social_feed": [
+                { "user": "@NorthKarchiNews", "time": "2 mins ago", "text": "Huge smoke cloud rising from Sector 4 warehouse block. Fire engines sirens heard heading there! #KarachiFire" },
+                { "user": "@Siddique_A", "time": "5 mins ago", "text": "Something is burning near the industrial area. Visibility is very poor. Stay safe everyone." }
+            ],
+            "agent_flow": [
+                { "step": "Anomaly Ingestion", "details": "Thermal hotspot detected in Sector 4 industrial warehouses.", "status": "COMPLETED" },
+                { "step": "Multi-Sensor Fusion", "details": "PM2.5 sensor verified severe particulate spike (320 AQI).", "status": "COMPLETED" },
+                { "step": "Waze Congestion Check", "details": "Traffic speeds dropped to 8 km/h. Local street blockages.", "status": "COMPLETED" },
+                { "step": "Confidence Calibration", "details": "Calculated 92% confidence index (Actionable Threshold).", "status": "COMPLETED" },
+                { "step": "Mitigation Dispatch", "details": "Notified Jinnah Trauma Centre (15 beds standby) & dispatched 4x Fire Engines.", "status": "DEPLOYED" }
             ],
             "mitigation_plan": {
                 "public_alert": "Severe warehouse fire in Sector 4. Heavy smoke plume blowing south. Nearby residents shelter in place.",
@@ -67,6 +80,17 @@ def get_initial_crises():
                 { "name": "CCTV Vision AI", "reading": "Standing water: 2.5 feet, stranded vehicles", "status": "CONFIRMED" },
                 { "name": "Waze Traffic", "reading": "Avg Speed: 3 km/h (Gridlock)", "status": "CONFIRMED" }
             ],
+            "social_feed": [
+                { "user": "@Clifton_Driver", "time": "4 mins ago", "text": "Khayaban-e-Iqbal is completely flooded. Clifton underpass is underwater! Do not drive here! #KarachiRain" },
+                { "user": "@KarachiWeatherUpdates", "time": "8 mins ago", "text": "Severe cloudburst over Clifton area. Standing water reported across multiple blocks. Drive carefully." }
+            ],
+            "agent_flow": [
+                { "step": "Precipitation Alert", "details": "Rainfall sensors record 75mm/hr torrential downpour in Clifton.", "status": "COMPLETED" },
+                { "step": "CCTV Vision AI Analysis", "details": "CCTV camera #108 reports standing water >2.5ft & stranded cars.", "status": "COMPLETED" },
+                { "step": "Traffic Flow Audit", "details": "Waze reports complete gridlock around Clifton Underpass.", "status": "COMPLETED" },
+                { "step": "Confidence Calibration", "details": "Calculated 88% confidence index (Emergency Threshold).", "status": "COMPLETED" },
+                { "step": "Mitigation Dispatch", "details": "Notified South City Hospital (10 standby beds) & dispatched 2x Rescue Boats.", "status": "DEPLOYED" }
+            ],
             "mitigation_plan": {
                 "public_alert": "High-tide urban flooding in Clifton Block 5. Avoid low-lying underpasses immediately.",
                 "safe_route": {
@@ -99,6 +123,17 @@ def get_initial_crises():
                 { "name": "Weather API", "reading": "Heat Index: 47°C", "status": "CONFIRMED" },
                 { "name": "Grid Load Monitor", "reading": "Capacity: 104% (Overload risk)", "status": "CONFIRMED" },
                 { "name": "Social Media Velocity", "reading": "Distress mentions: 450/min", "status": "CONFIRMED" }
+            ],
+            "social_feed": [
+                { "user": "@OrangiResident", "time": "12 mins ago", "text": "Electricity has been out for 4 hours and it is 44 degrees outside. This is unbearable. #OrangiLoadshedding" },
+                { "user": "@EdhiFoundation", "time": "15 mins ago", "text": "Emergency heat relief cooling camps set up near Orangi Sector 9. Free water and ORS available." }
+            ],
+            "agent_flow": [
+                { "step": "Forecast Ingestion", "details": "Weather forecast indexes 47°C heat index for consecutive 4 days.", "status": "COMPLETED" },
+                { "step": "Grid Strain Analysis", "details": "Orangi Town electrical grid reports capacity at 104% overload risk.", "status": "COMPLETED" },
+                { "step": "Public Sentiment Ingest", "details": "Social media distress velocity spikes to 450 heat-related mentions/min.", "status": "COMPLETED" },
+                { "step": "Confidence Calibration", "details": "Calculated 78% confidence index (High Alert Threshold).", "status": "COMPLETED" },
+                { "step": "Mitigation Dispatch", "details": "Notified Abbasi Shaheed (20 cooling beds) & set up Sector 9 Cooling Hall.", "status": "DEPLOYED" }
             ],
             "mitigation_plan": {
                 "public_alert": "Extreme heat wave alert for Orangi. Local power outage risk. Cooling centers active.",
@@ -183,6 +218,14 @@ def run_agent_background(crisis_type: str, location: str):
                 },
                 "sources_verified": [
                     { "name": "Raw LLM Result", "reading": "Output unparsed", "status": "PENDING" }
+                ],
+                "social_feed": [
+                    { "user": "@KarachiSafety", "time": "Just now", "text": f"Monitoring possible {crisis_type} event near {location}. Please follow local official directions." }
+                ],
+                "agent_flow": [
+                    { "step": "Anomaly Ingestion", "details": f"Ingested primary alert for {crisis_type} at {location}.", "status": "COMPLETED" },
+                    { "step": "Verification Fail", "details": f"Agent responded with unparseable payload structure, reverting to automated safety protocol.", "status": "COMPLETED" },
+                    { "step": "Mitigation Dispatch", "details": "Alerted Civil Hospital Karachi and dispatched 1x Ambulance unit.", "status": "DEPLOYED" }
                 ],
                 "mitigation_plan": {
                     "public_alert": f"Raw Output: {str(result)[:100]}...",
