@@ -97,6 +97,39 @@ def process_crisis_event(crisis_type: str, location: str) -> dict:
     
     Start your analysis NOW."""
     
+    # Create verification task
+    verification_task = Task(
+        description=crisis_prompt,
+        agent=agent,
+        expected_output="JSON-formatted crisis analysis with verification, confidence score, and mitigation plan"
+    )
+    
+    # Create and execute crew
+    crew = Crew(
+        agents=[agent],
+        tasks=[verification_task],
+        process=Process.sequential,
+        verbose=True
+    )
+    
+    try:
+        result = crew.kickoff()
+        print(f"✅ Crew execution result:\n{result}")
+        
+        # Parse result as JSON
+        parsed_result = parse_crew_response(str(result))
+        return parsed_result
+        
+    except Exception as e:
+        print(f"❌ Crew execution failed: {e}")
+        import traceback
+        traceback.print_exc()
+        return {
+            "status": "ERROR",
+            "confidence_score": 0,
+            "error": str(e),
+            "fallback": "System entered degraded mode."
+        }
 
 
 def get_crisis_tools(crisis_type: str) -> str:
