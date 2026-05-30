@@ -28,7 +28,7 @@ steps:
       - '--platform'
       - 'managed'
       - '--set-env-vars'
-      - 'GOOGLE_API_KEY=AIzaSyAy057-0eeZnj6cZxw7sAMSsiSGSpjx-4s'
+      - 'GOOGLE_API_KEY=GEMINI_API_KEY'
 
 images:
   - 'gcr.io/$PROJECT_ID/crisisapp:$COMMIT_SHA'
